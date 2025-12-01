@@ -50,15 +50,19 @@ bot.on('text', async (ctx) => {
       } else {
         // Default response if no match found
         console.log('Sending default response');
-        // Only send default response in private chats, not groups
-        if (ctx.chat?.type === 'private') {
+        // Send default response in both private chats and groups now
+        // But only if the message doesn't start with '/' (to avoid interfering with commands)
+        if (!ctx.message.text.startsWith('/')) {
           await ctx.reply("I'm sorry, I don't understand that command. Please try another one.");
         }
       }
     }
   } catch (error) {
     console.error('Error processing message:', error);
-    await ctx.reply('Sorry, something went wrong while processing your message.');
+    // Only reply with error message in private chats to avoid spamming groups
+    if (ctx.chat?.type === 'private') {
+      await ctx.reply('Sorry, something went wrong while processing your message.');
+    }
   }
 });
 
@@ -94,6 +98,68 @@ bot.command('start', (ctx) => {
   ctx.reply('Welcome to our Telegram bot! Send /help to see available commands.');
 });
 
+// Settings command to help with group configuration
+bot.command('settings', async (ctx) => {
+  console.log('Received /settings command');
+  try {
+    let settingsText = "Bot Settings Information:\n\n";
+    settingsText += `Chat type: ${ctx.chat?.type}\n\n`;
+    
+    if (ctx.chat?.type !== 'private') {
+      settingsText += "For group chats, make sure:\n";
+      settingsText += "1. The bot is an administrator in the group\n";
+      settingsText += "2. Privacy mode is disabled in BotFather (/setprivacy -> Disable)\n";
+      settingsText += "3. The bot can read all messages in the group\n\n";
+    }
+    
+    settingsText += "Available templates:\n";
+    
+    // Get all templates
+    await dbConnect();
+    const templates = await Template.find({}, 'keyword response');
+    
+    if (templates.length > 0) {
+      templates.slice(0, 10).forEach((template, index) => {
+        settingsText += `${index + 1}. "${template.keyword}" -> "${template.response.substring(0, 50)}${template.response.length > 50 ? '...' : ''}"\n`;
+      });
+      
+      if (templates.length > 10) {
+        settingsText += `... and ${templates.length - 10} more templates.\n`;
+      }
+    } else {
+      settingsText += "No templates found. Please add some in the admin dashboard.\n";
+    }
+    
+    await ctx.reply(settingsText);
+  } catch (error) {
+    console.error('Error in settings command:', error);
+    await ctx.reply('Unable to fetch settings information.');
+  }
+});
+
+// New command to help with group issues
+bot.command('groupfix', async (ctx) => {
+  console.log('Received /groupfix command');
+  try {
+    let fixText = "🔧 Group Messaging Fix Guide:\n\n";
+    
+    if (ctx.chat?.type === 'private') {
+      fixText += "This command is meant to be used in groups, but here are general tips:\n\n";
+    }
+    
+    fixText += "1. Make sure I'm an ADMIN in this group\n";
+    fixText += "2. Check that privacy mode is DISABLED in @BotFather (/setprivacy)\n";
+    fixText += "3. Try sending messages that match my templates\n";
+    fixText += "4. View available templates with /settings\n\n";
+    fixText += "If issues persist, contact the bot administrator.";
+    
+    await ctx.reply(fixText);
+  } catch (error) {
+    console.error('Error in groupfix command:', error);
+    await ctx.reply('Unable to provide fix information.');
+  }
+});
+
 // Webhook handler
 export async function POST(request: NextRequest) {
   console.log('Telegram webhook received');
@@ -113,14 +179,20 @@ export async function POST(request: NextRequest) {
 
 // For setting webhook
 export async function GET() {
-  // Use the local URL for development
-  const WEBHOOK_URL = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://your-domain.com'}/api/telegram`;
+  // Use the Vercel URL for production
+  const WEBHOOK_URL = `${process.env.NEXT_PUBLIC_BASE_URL}/api/telegram`;
   
   console.log('Setting webhook to:', WEBHOOK_URL);
   
   try {
     await bot.telegram.setWebhook(WEBHOOK_URL);
-    return new Response(`Webhook set to ${WEBHOOK_URL}`, { status: 200 });
+    const webhookInfo = await bot.telegram.getWebhookInfo();
+    return new Response(`Webhook set to ${WEBHOOK_URL}\nWebhook Info: ${JSON.stringify(webhookInfo, null, 2)}`, { 
+      status: 200,
+      headers: {
+        'Content-Type': 'text/plain'
+      }
+    });
   } catch (error) {
     console.error('Error setting webhook:', error);
     return new Response('Error setting webhook', { status: 500 });
