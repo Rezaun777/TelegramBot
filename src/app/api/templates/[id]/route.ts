@@ -7,7 +7,7 @@ import { requireAuth } from '@/lib/auth';
 export const runtime = "nodejs";
 
 // PUT /api/templates/[id] - Update a template
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const authResult = await requireAuth(request);
     
@@ -18,7 +18,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       );
     }
 
-    const { id } = params;
+    const { id } = await context.params;
     const { keyword, response } = await request.json();
     
     if (!keyword || !response) {
@@ -74,7 +74,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 }
 
 // DELETE /api/templates/[id] - Delete a template
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const authResult = await requireAuth(request);
     
@@ -85,7 +85,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       );
     }
 
-    const { id } = params;
+    const { id } = await context.params;
 
     await dbConnect();
     
