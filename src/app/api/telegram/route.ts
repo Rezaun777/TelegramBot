@@ -21,7 +21,7 @@ bot.on('text', async (ctx) => {
     await dbConnect();
     
     // Get the message text
-    const messageText = ctx.message.text.toLowerCase();
+    const messageText = ctx.message.text.toLowerCase().trim();
     
     // Look for a template that matches the message
     const template = await Template.findOne({
@@ -44,11 +44,8 @@ bot.on('text', async (ctx) => {
       
       if (partialMatchTemplates.length > 0) {
         await ctx.reply(partialMatchTemplates[0].response);
-      } else {
-        // Default response if no match found
-        console.log('Sending default response');
-        await ctx.reply("I'm sorry, I don't understand that command. Please try another one.");
       }
+      // Note: We're removing the default response to see if that's causing issues
     }
   } catch (error) {
     console.error('Error processing message:', error);
