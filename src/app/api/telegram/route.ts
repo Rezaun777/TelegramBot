@@ -14,14 +14,17 @@ if (!BOT_TOKEN) {
 
 const bot = new Telegraf(BOT_TOKEN);
 
-// Auto-reply middleware
+// Auto-reply middleware - handle all text messages
 bot.on('text', async (ctx) => {
   console.log('Received text message:', ctx.message.text);
+  console.log('Chat type:', ctx.chat?.type);
+  console.log('Message from:', ctx.from?.username);
+  
   try {
     await dbConnect();
     
     // Get the message text
-    const messageText = ctx.message.text.toLowerCase();
+    const messageText = ctx.message.text.toLowerCase().trim();
     
     // Look for a template that matches the message
     const template = await Template.findOne({
@@ -47,7 +50,10 @@ bot.on('text', async (ctx) => {
       } else {
         // Default response if no match found
         console.log('Sending default response');
-        await ctx.reply("I'm sorry, I don't understand that command. Please try another one.");
+        // Only send default response in private chats, not groups
+        if (ctx.chat?.type === 'private') {
+          await ctx.reply("I'm sorry, I don't understand that command. Please try another one.");
+        }
       }
     }
   } catch (error) {
